@@ -1,0 +1,193 @@
+import numpy as np
+import navier_stokes as nv
+import helper_functions as hf
+import matplotlib.pyplot as plt
+from helper_functions import *
+import solvers as s
+from PIL import Image
+
+tortoise_path = "pictures\small_tortoise.png"
+tortoise = np.asarray(Image.open(tortoise_path).convert("L")) / 255
+original_image = tortoise
+
+color_tortoise_path = "color pictures\small_tortoise.png"
+color_tortoise = np.asarray(Image.open(color_tortoise_path).convert("RGB")) / 255
+original_color_image = color_tortoise
+
+color_tortoise_path = "color pictures\small_tortoise_paint.png"
+color_tortoise = np.asarray(Image.open(color_tortoise_path).convert("RGB")) / 255
+original_color_image = color_tortoise
+
+color_tortoise_text_path = "color pictures\small_tortoise_paint_text1.png"
+color_tortoise_text = np.asarray(Image.open(color_tortoise_text_path).convert("RGB")) / 255
+text_color_image = color_tortoise_text
+
+def testnv(max_iter=300000, distorted=None, pattern=None):
+    # pattern = hf.generate_random_rectangle_pattern(
+    #     np.shape(original_image)[0], np.shape(original_image)[1], 15, 15, 0.05
+    # )
+    if distorted is None:
+        pattern = hf.generate_grid(
+            np.shape(original_image)[0], np.shape(original_image)[1]
+        )
+
+        (distorted, pattern) = hf.delete_with_pattern(original_image, pattern)
+        # hf.plot_two_greyscales(pattern, distorted)
+    plot_from_greyscale(distorted, title=f"Damaged image", filename="Figures/NV/damaged")
+
+    recovered = nv.solve_Navier_Stokes(distorted, pattern.astype(bool), max_iter=max_iter, delta_t=.01,
+                                       breakpoint=10000, g=1, nu=0.01, save_breakpoints=True, pause_time=-1, forward=False, plot_omega=False)
+    return recovered
+
+def true_color_reconstruction(YIQ=False, max_iter=1000, distorted=None, pattern=None):
+    if distorted is None:
+        pattern = hf.generate_grid(
+            np.shape(original_image)[0], np.shape(original_image)[1]
+        )
+        image = original_color_image
+    else:
+        print('Taken distorted image')
+        image = distorted
+    if YIQ == True:
+        image = hf.RGB_to_YIQ(image)
+        Y = image[:, :, 0]
+        I = image[:, :, 1]
+        Q = image[:, :, 2]
+        
+        (Y, pattern) = hf.delete_with_pattern_inverted(Y, pattern)
+        (I, pattern) = hf.delete_with_pattern_inverted(I, pattern)
+        (Q, pattern) = hf.delete_with_pattern_inverted(Q, pattern)
+        image[:, :, 0] = nv.solve_Navier_Stokes(Y, pattern.astype(bool), max_iter=max_iter, delta_t=.01,
+                                       breakpoint=10000, g=1, nu=2, save_breakpoints=True, pause_time=0.1, forward=False)
+        image[:, :, 1] = nv.solve_Navier_Stokes(I, pattern.astype(bool), max_iter=max_iter, delta_t=.01,
+                                       breakpoint=10000, g=1, nu=2, save_breakpoints=True, pause_time=0.1, forward=False)
+        image[:, :, 2] = nv.solve_Navier_Stokes(Q, pattern.astype(bool), max_iter=max_iter, delta_t=.01,
+                                       breakpoint=10000, g=1, nu=2, save_breakpoints=True, pause_time=0.1, forward=False)
+        image = hf.YIQ_to_RGB(image)
+
+    else:
+        R = image[:, :, 0]
+        G = image[:, :, 1]
+        B = image[:, :, 2]
+        if distorted is None:
+            (R, pattern) = hf.delete_with_pattern(R, pattern)
+            (G, pattern) = hf.delete_with_pattern(G, pattern)
+            (B, pattern) = hf.delete_with_pattern(B, pattern)
+        else:
+            plot_from_greyscale(image, title=f"Damaged image", pause_time=3, filename="Figures/NV/damaged")
+        image[:, :, 0] = nv.solve_Navier_Stokes(R, pattern.astype(bool), max_iter=max_iter, delta_t=.01,
+                                       breakpoint=10000, g=1, nu=2)
+        plot_from_greyscale(image[:, :, 0], pause_time=3)
+        image[:, :, 1] = nv.solve_Navier_Stokes(G, pattern.astype(bool), max_iter=max_iter, delta_t=.01,
+                                       breakpoint=10000, g=1, nu=2)
+        plot_from_greyscale(image[:, :, 1], pause_time=3)
+        image[:, :, 2] = nv.solve_Navier_Stokes(B, pattern.astype(bool), max_iter=max_iter, delta_t=.01,
+                                       breakpoint=10000, g=1, nu=2)
+        plot_from_greyscale(image[:, :, 2], pause_time=3)
+
+    return image
+
+def true_color_laplace(YIQ=False, max_iter=1000, distorted=None, pattern=None):
+    if distorted is None:
+        pattern = hf.generate_grid(
+            np.shape(original_image)[0], np.shape(original_image)[1]
+        )
+        image = original_color_image
+    else:
+        print('Taken distorted image')
+        image = distorted
+    if YIQ == True:
+        image = hf.RGB_to_YIQ(image)
+        Y = image[:, :, 0]
+        I = image[:, :, 1]
+        Q = image[:, :, 2]
+        
+        (Y, pattern) = hf.delete_with_pattern_inverted(Y, pattern)
+        (I, pattern) = hf.delete_with_pattern_inverted(I, pattern)
+        (Q, pattern) = hf.delete_with_pattern_inverted(Q, pattern)
+        image[:, :, 0] = nv.solve_Navier_Stokes(Y, pattern.astype(bool), max_iter=max_iter, delta_t=.01,
+                                       breakpoint=10000, g=1, nu=2, save_breakpoints=True, pause_time=0.1, forward=False)
+        image[:, :, 1] = nv.solve_Navier_Stokes(I, pattern.astype(bool), max_iter=max_iter, delta_t=.01,
+                                       breakpoint=10000, g=1, nu=2, save_breakpoints=True, pause_time=0.1, forward=False)
+        image[:, :, 2] = nv.solve_Navier_Stokes(Q, pattern.astype(bool), max_iter=max_iter, delta_t=.01,
+                                       breakpoint=10000, g=1, nu=2, save_breakpoints=True, pause_time=0.1, forward=False)
+        image = hf.YIQ_to_RGB(image)
+
+    else:
+        R = image[:, :, 0]
+        G = image[:, :, 1]
+        B = image[:, :, 2]
+        if distorted is None:
+            (R, pattern) = hf.delete_with_pattern(R, pattern)
+            (G, pattern) = hf.delete_with_pattern(G, pattern)
+            (B, pattern) = hf.delete_with_pattern(B, pattern)
+        else:
+            plot_from_greyscale(image, title=f"Damaged image", pause_time=3, filename="Figures/NV/damaged")
+        image[:, :, 0] = s.solve_lagrange(R, pattern.astype(bool), num_iterations=max_iter)
+        print('R done')
+        plot_from_greyscale(image[:, :, 0], pause_time=3)
+        image[:, :, 1] = s.solve_lagrange(G, pattern.astype(bool), num_iterations=max_iter)
+        print('G done')
+        plot_from_greyscale(image[:, :, 1], pause_time=3)
+        image[:, :, 2] = s.solve_lagrange(B, pattern.astype(bool), num_iterations=max_iter)
+        print('B done')
+        plot_from_greyscale(image[:, :, 2], pause_time=3)
+
+    return image
+
+def generate_bar():
+    image = np.zeros((21,21))
+    pattern = np.zeros(image.shape).astype(bool)
+    for j,k in product(range(8,13),range(21)):
+        image[j,k] = 1
+    for j,k in product(range(5,16),range(5,16)):
+        pattern[j,k] = 1
+
+    distorted = np.copy(image)
+    distorted[pattern] = 0
+    return image, pattern, distorted
+
+def test_color(method='NV'):
+    pattern = np.zeros(original_color_image.shape[:-1]).astype(bool)
+    difference = np.abs(original_color_image-text_color_image)
+    total_difference = difference[:,:,0]+ difference[:,:,1]+difference[:,:,2]
+    pattern[total_difference >0] = True
+    
+    hf.plot_from_greyscale(original_color_image, title='Original image', filename="Figures/NV/original", pause_time=2)
+    hf.plot_from_greyscale(pattern, title='Mask image', filename="Figures/NV/mask", pause_time=2)
+    distorted = text_color_image
+
+    if method == "Lagrange":
+        restored_image = true_color_laplace(distorted=text_color_image, pattern=pattern)
+    if method == "NV":
+        restored_image = true_color_reconstruction(distorted=text_color_image, pattern=pattern, max_iter=10000)
+    
+    
+    
+    print('Min', np.min(restored_image))
+    print('Max ', np.max(restored_image))
+    
+    discrepancy = (
+        discrepancy_score(restored_image[:, :, 0], original_color_image[:, :, 0], pattern)
+        + discrepancy_score(restored_image[:, :, 1], original_color_image[:, :, 1], pattern)
+        + discrepancy_score(restored_image[:, :, 2], original_color_image[:, :, 2], pattern)
+    ) / 3
+    print('Discrepancy score: ', discrepancy)
+    plot_from_greyscale(restored_image, title=f"Restored image (Discrepancy: {discrepancy:.2f})", filename=f"Figures/NV/{method}_restored")
+
+def test_bar(method='NV'):
+    image, pattern, distorted = generate_bar()
+    hf.plot_from_greyscale(image, title='Original image', filename="Figures/NV/original")
+    hf.plot_from_greyscale(pattern, title='Mask image', filename="Figures/NV/mask")
+    if method == 'NV':
+        restored_image = testnv(pattern=pattern, distorted=distorted)
+    discrepancy = hf.discrepancy_score(image, restored_image, pattern)
+    print('Discrepancy score: ', discrepancy)
+    plot_from_greyscale(restored_image, title=f"Restored image (Discrepancy: {discrepancy:.2f})", filename=f"Figures/NV/{method}_restored")
+# test_bar()
+#testnv()
+test_color(method='NV')
+
+#hf.plot_two_greyscales(half_half()[0],half_half()[1])
+# gifs 
+# score 
